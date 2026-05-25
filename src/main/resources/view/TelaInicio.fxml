@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<VBox fx:id="panel" alignment="CENTER" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="480.0" prefWidth="640.0" spacing="15.0" styleClass="main-container" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.TelaInicioController">
+   <children>
+      <Label fx:id="lblTxtInicio" styleClass="header-label" text="Conecte-se ao Servidor">
+         <font>
+            <Font name="System Bold" size="28.0" />
+         </font>
+         <VBox.margin>
+            <Insets bottom="20.0" />
+         </VBox.margin>
+      </Label>
+      
+      <VBox alignment="CENTER_LEFT" maxWidth="300.0" spacing="5.0">
+         <children>
+            <Label fx:id="lblTxtPorta" styleClass="input-label" text="Porta do servidor" />
+            <TextField fx:id="txtFieldPorta" promptText="Ex: 1234" styleClass="minimal-input" />
+         </children>
+      </VBox>
+      
+      <VBox alignment="CENTER_LEFT" maxWidth="300.0" spacing="5.0">
+         <children>
+            <Label fx:id="lblTxtIP" styleClass="input-label" text="IP do servidor" />
+            <TextField fx:id="txtFieldIp" promptText="Ex: 127.0.0.1" styleClass="minimal-input" />
+         </children>
+      </VBox>
+      
+      <Button fx:id="btnConectar" mnemonicParsing="false" onMouseClicked="#acaoBtn" prefWidth="300.0" styleClass="primary-button" text="Conectar">
+         <font>
+            <Font name="System Bold" size="14.0" />
+         </font>
+         <VBox.margin>
+            <Insets top="10.0" />
+         </VBox.margin>
+      </Button>
+   </children>
+   <padding>
+      <Insets bottom="40.0" left="40.0" right="40.0" top="40.0" />
+   </padding>
+</VBox>
