@@ -2,6 +2,8 @@
 
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.AnchorPane?>
@@ -56,5 +58,12 @@
       
       <TextArea fx:id="txtArea" layoutX="14.0" layoutY="250.0" prefHeight="180.0" prefWidth="605.0" styleClass="minimal-input" />
       <Button fx:id="btnEnviarMensagem" layoutX="14.0" layoutY="440.0" mnemonicParsing="false" onAction="#acaoEnviarMensagem" prefHeight="30.0" prefWidth="150.0" styleClass="secondary-button" text="Enviar Mensagem" />
+      <Button fx:id="btnLimparTexto" layoutX="175.0" layoutY="440.0" mnemonicParsing="false" onAction="#acaoLimparTexto" prefHeight="30.0" prefWidth="150.0" styleClass="secondary-button" text="Limpar Texto" />
+      <TableView fx:id="tabelaUsuarios" layoutX="360.0" layoutY="58.0" prefHeight="137.0" prefWidth="250.0">
+        <columns>
+          <TableColumn fx:id="colunaUsuarios" prefWidth="248.0" text="Usuários Logados" />
+        </columns>
+      </TableView>
+      <Button fx:id="btnListarUsuarios" layoutX="360.0" layoutY="205.0" mnemonicParsing="false" onAction="#acaoListarUsuariosLogados" prefHeight="30.0" prefWidth="250.0" styleClass="secondary-button" text="Listar Usuários Logados" />
    </children>
 </AnchorPane>

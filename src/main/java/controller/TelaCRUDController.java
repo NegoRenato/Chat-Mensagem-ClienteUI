@@ -8,6 +8,14 @@ import java.net.Socket;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TableColumn;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -22,6 +30,81 @@ public class TelaCRUDController {
 	static Socket clienteSocket = null;
 	private Gson gson = new Gson();
 	private String tokenSessao;
+	private String ultimoUsuarioLogado;
+	private boolean threadLeituraIniciada = false;
+
+    @FXML
+    public void initialize() {
+        if (clienteSocket != null && !threadLeituraIniciada) {
+            iniciarThreadLeitura();
+        }
+    }
+
+    public void iniciarThreadLeitura() {
+        threadLeituraIniciada = true;
+        Thread thread = new Thread(() -> {
+            try {
+                BufferedReader entrada = new BufferedReader(new InputStreamReader(clienteSocket.getInputStream()));
+                String response;
+                while ((response = entrada.readLine()) != null) {
+                    final String res = response;
+                    javafx.application.Platform.runLater(() -> processarResposta(res));
+                }
+            } catch (IOException e) {
+                javafx.application.Platform.runLater(() -> txtArea.appendText("Conexão com servidor encerrada.\n"));
+            }
+        });
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void processarResposta(String response) {
+        try {
+            JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
+            
+            if (jsonResponse.has("op") && jsonResponse.get("op").getAsString().equals("receberMensagem")) {
+                String remetente = jsonResponse.get("remetente").getAsString();
+                String msg = jsonResponse.get("mensagem").getAsString();
+                txtArea.appendText("Mensagem de " + remetente + ": " + msg + "\n\n");
+                return;
+            } 
+            
+            if (jsonResponse.has("lista_usuarios")) {
+                JsonArray usuariosArray = jsonResponse.getAsJsonArray("lista_usuarios");
+                ObservableList<String> usuarios = FXCollections.observableArrayList();
+                for (JsonElement element : usuariosArray) {
+                    usuarios.add(element.getAsString());
+                }
+                if (colunaUsuarios != null) {
+                    colunaUsuarios.setCellValueFactory(data -> new SimpleStringProperty(data.getValue()));
+                }
+                if (tabelaUsuarios != null) {
+                    tabelaUsuarios.setItems(usuarios);
+                }
+                txtArea.appendText(" recebido do servidor: " + response + "\n\n");
+                return;
+            } 
+            
+            if (jsonResponse.has("token")) {
+                this.tokenSessao = jsonResponse.get("token").getAsString();
+                if (ultimoUsuarioLogado != null) {
+                    lblUsuarioLogado.setText(ultimoUsuarioLogado);
+                }
+                txtArea.appendText(" recebido do servidor: " + response + "\n\n");
+                return;
+            }
+
+            if (jsonResponse.has("resposta") && jsonResponse.get("resposta").getAsString().equals("401")) {
+                txtArea.appendText("Erro do servidor: " + jsonResponse.get("mensagem").getAsString() + "\n\n");
+                return;
+            }
+
+            txtArea.appendText(" recebido do servidor: " + response + "\n\n");
+            
+        } catch (Exception e) {
+            txtArea.appendText(" recebido do servidor: " + response + "\n\n");
+        }
+    }
 	
 	
     @FXML
@@ -49,6 +132,18 @@ public class TelaCRUDController {
     @FXML
     private Button btnSairServidor;
     
+    @FXML
+    private TableView<String> tabelaUsuarios;
+
+    @FXML
+    private TableColumn<String, String> colunaUsuarios;
+
+    @FXML
+    private Button btnListarUsuarios;
+
+    @FXML
+    private Button btnLimparTexto;
+
     @FXML
     private Label lblNome;
 
@@ -84,39 +179,20 @@ public class TelaCRUDController {
     void acaoAtualizar(ActionEvent event) {
     	try {
 			PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(),true);
-    		BufferedReader entrada = new BufferedReader(new InputStreamReader(clienteSocket.getInputStream()));
 			JsonObject request = new JsonObject();
 			
 			if(lblUsuarioLogado.getText().equals("admin") && !txtFieldUsuario.getText().isEmpty()) {
 				request.addProperty("op", "atualizarUsuarioAdmin");
 				if(!txtFieldToken.getText().isEmpty()) {
-					request.addProperty("token_admin", txtFieldToken.getText());
+					request.addProperty("token", txtFieldToken.getText());
 					request.addProperty("usuario", txtFieldUsuario.getText());
 					request.addProperty("nome", txtFieldNome.getText());
 					request.addProperty("senha", txtFieldSenha.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}else {
-					request.addProperty("token_admin", tokenSessao);
+					request.addProperty("token", tokenSessao);
 					request.addProperty("usuario", txtFieldUsuario.getText());
 					request.addProperty("nome", txtFieldNome.getText());
 					request.addProperty("senha", txtFieldSenha.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}	
 			}else {
 				request.addProperty("op", "atualizarUsuario");
@@ -124,30 +200,14 @@ public class TelaCRUDController {
 					request.addProperty("token", txtFieldToken.getText());
 					request.addProperty("nome", txtFieldNome.getText());
 					request.addProperty("senha", txtFieldSenha.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}else {
 					request.addProperty("token", tokenSessao);
 					request.addProperty("nome", txtFieldNome.getText());
 					request.addProperty("senha", txtFieldSenha.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}
 			}
+			txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
+			saida.println(gson.toJson(request));
 			limparCampos();
 		} catch (IOException e) {
 			System.err.println("erro: " + e.getMessage());
@@ -158,9 +218,7 @@ public class TelaCRUDController {
     void acaoCadastrar(ActionEvent event) {
     	try {
     		PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(), true);
-    		BufferedReader entrada = new BufferedReader(new InputStreamReader(clienteSocket.getInputStream()));
     		JsonObject request = new JsonObject();
-    		String response = null;
     		
     		request.addProperty("op", "cadastrarUsuario");
     		request.addProperty("nome", txtFieldNome.getText());
@@ -168,15 +226,8 @@ public class TelaCRUDController {
     		request.addProperty("senha", txtFieldSenha.getText());
     		
     		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-    		
     		saida.println(gson.toJson(request));
-
-    		response = entrada.readLine();
-    		
-    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-    		
     		limparCampos();
-    		
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -186,88 +237,34 @@ public class TelaCRUDController {
     void acaoConsultar(ActionEvent event) {
     	try {
 			PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(),true);
-    		BufferedReader entrada = new BufferedReader(new InputStreamReader(clienteSocket.getInputStream()));
 			JsonObject request = new JsonObject();
 			
 			if(lblUsuarioLogado.getText().equals("admin") && txtFieldUsuario.getText().isEmpty()) {
 				request.addProperty("op", "consultarUsuariosAdmin");
 				if(!txtFieldToken.getText().isEmpty()) {
-					request.addProperty("token_admin", txtFieldToken.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
+					request.addProperty("token", txtFieldToken.getText());
 				}else {
-					request.addProperty("token_admin", tokenSessao);
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
+					request.addProperty("token", tokenSessao);
 				}	
 			}else if(lblUsuarioLogado.getText().equals("admin") && !txtFieldUsuario.getText().isEmpty()){
 				request.addProperty("op", "consultarUsuarioAdmin");
-				
 				if(!txtFieldToken.getText().isEmpty()) {
-					request.addProperty("token_admin", txtFieldToken.getText());
+					request.addProperty("token", txtFieldToken.getText());
 					request.addProperty("usuario", txtFieldUsuario.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}else {
-					request.addProperty("token_admin", tokenSessao);
+					request.addProperty("token", tokenSessao);
 					request.addProperty("usuario", txtFieldUsuario.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}
 			}else {
 				request.addProperty("op", "consultarUsuario");
 				if(!txtFieldToken.getText().isEmpty()) {
 					request.addProperty("token", txtFieldToken.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}else {
 					request.addProperty("token", tokenSessao);
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}
 			}
+			txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
+			saida.println(gson.toJson(request));
 			limparCampos();
 		} catch (IOException e) {
 			System.err.println("erro: " + e.getMessage());
@@ -278,7 +275,6 @@ public class TelaCRUDController {
     void acaoDeslogar(ActionEvent event) {
     	try {
 			PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(),true);
-    		BufferedReader entrada = new BufferedReader(new InputStreamReader(clienteSocket.getInputStream()));
 			JsonObject request = new JsonObject();
 
 			request.addProperty("op", "logout");
@@ -289,12 +285,7 @@ public class TelaCRUDController {
 			}
 
     		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-    		
     		saida.println(gson.toJson(request));
-
-    		String response = entrada.readLine();
-    		
-    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
 			lblUsuarioLogado.setText("...");
 			limparCampos();
 		} catch (IOException e) {
@@ -308,49 +299,81 @@ public class TelaCRUDController {
 			clienteSocket.close();
 			App.setRoot("TelaInicio");
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
     }
 
     @FXML
     void acaoEnviarMensagem(ActionEvent event) {
+        try {
+            PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(), true);
+            JsonObject request = new JsonObject();
+            request.addProperty("op", "enviarMensagem");
+            
+            if(!txtFieldToken.getText().isEmpty()) {
+                request.addProperty("token", txtFieldToken.getText());
+            } else {
+                request.addProperty("token", tokenSessao);
+            }
+            
+            String destinatario = null;
+            if (tabelaUsuarios != null && tabelaUsuarios.getSelectionModel().getSelectedItem() != null) {
+                destinatario = tabelaUsuarios.getSelectionModel().getSelectedItem();
+            }
+            
+            if (destinatario == null || destinatario.isEmpty()) {
+                request.addProperty("destinatario", "/todos");
+            } else {
+                request.addProperty("destinatario", destinatario);
+            }
+            
+            request.addProperty("mensagem", txtArea.getText());
+            
+            txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
+            saida.println(gson.toJson(request));
+        } catch (IOException e) {
+            System.err.println("erro: " + e.getMessage());
+        }
+    }
 
+    @FXML
+    void acaoListarUsuariosLogados(ActionEvent event) {
+        listarUsuariosLogados();
+    }
+
+    public void listarUsuariosLogados() {
+        try {
+            PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(), true);
+            JsonObject request = new JsonObject();
+            
+            request.addProperty("op", "listarUsuariosLogados");
+            if(!txtFieldToken.getText().isEmpty()) {
+                request.addProperty("token", txtFieldToken.getText());
+            } else {
+                request.addProperty("token", tokenSessao);
+            }
+            
+            txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
+            saida.println(gson.toJson(request));
+        } catch (IOException e) {
+            System.err.println("erro: " + e.getMessage());
+        }
     }
 
     @FXML
     void acaoExcluir(ActionEvent event) {
     	try {
 			PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(),true);
-    		BufferedReader entrada = new BufferedReader(new InputStreamReader(clienteSocket.getInputStream()));
 			JsonObject request = new JsonObject();
 			
 			if(lblUsuarioLogado.getText().equals("admin") && !txtFieldUsuario.getText().isEmpty()) {
 				request.addProperty("op", "deletarUsuarioAdmin");
 				if(!txtFieldToken.getText().isEmpty()) {
-					request.addProperty("token_admin", txtFieldToken.getText());
+					request.addProperty("token", txtFieldToken.getText());
 					request.addProperty("usuario", txtFieldUsuario.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}else {
-					request.addProperty("token_admin", tokenSessao);
+					request.addProperty("token", tokenSessao);
 					request.addProperty("usuario", txtFieldUsuario.getText());
-					
-		    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-		    		
-					saida.println(gson.toJson(request));
-					
-		    		String response = entrada.readLine();
-		    		
-		    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-		    		
 				}	
 			}else {
 				request.addProperty("op", "deletarUsuario");
@@ -359,18 +382,10 @@ public class TelaCRUDController {
 				}else {
 					request.addProperty("token", tokenSessao);
 				}
-				request.addProperty("nome", txtFieldNome.getText());
-				request.addProperty("senha", txtFieldSenha.getText());
-				
-	    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-	    		
-	    		saida.println(gson.toJson(request));
-
-	    		String response = entrada.readLine();
-	    		
-	    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-	    		limparCampos();
 			}
+			txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
+			saida.println(gson.toJson(request));
+			limparCampos();
 		} catch (IOException e) {
 			System.err.println("erro: " + e.getMessage());
 		}
@@ -380,35 +395,25 @@ public class TelaCRUDController {
     void acaoLogar(ActionEvent event) {
 		try {
 			PrintWriter saida = new PrintWriter(clienteSocket.getOutputStream(),true);
-    		BufferedReader entrada = new BufferedReader(new InputStreamReader(clienteSocket.getInputStream()));
 			JsonObject request = new JsonObject();
 			
 			request.addProperty("op", "login");
 			request.addProperty("usuario", txtFieldUsuario.getText());
 			request.addProperty("senha", txtFieldSenha.getText());
 			
-    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
-    		
-    		saida.println(gson.toJson(request));
+			ultimoUsuarioLogado = txtFieldUsuario.getText();
 
-    		String response = entrada.readLine();
-    		
-    		txtArea.appendText(" recebido do servidor" + response + "\n\n");
-    		
-			JsonObject jsonResponse = gson.fromJson(response, JsonObject.class);
-			if (jsonResponse.has("resposta") && jsonResponse.get("resposta").getAsString().equals("200")) {
-				if(jsonResponse.has("token")) {
-					this.tokenSessao = jsonResponse.get("token").getAsString();
-					lblUsuarioLogado.setText(txtFieldUsuario.getText());
-				}else if(jsonResponse.has("token_admin")) {
-					this.tokenSessao = jsonResponse.get("token_admin").getAsString();
-					lblUsuarioLogado.setText(txtFieldUsuario.getText());
-				}
-			}
+    		txtArea.appendText("enviado ao servidor: " + gson.toJson(request) + "\n\n");
+    		saida.println(gson.toJson(request));
 			limparCampos();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+    }
+    
+    @FXML
+    void acaoLimparTexto(ActionEvent event) {
+        txtArea.clear();
     }
     
     public void limparCampos() {
