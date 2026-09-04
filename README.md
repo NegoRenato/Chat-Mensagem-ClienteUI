@@ -1,6 +1,7 @@
 # Chat-Mensagem-ClienteUI
 
 Visão Geral (Tema)
+
 O projeto consiste em um aplicativo de troca de mensagens baseado na arquitetura cliente-servidor. O cliente envia requisições para o servidor, que processa as chamadas e retorna a resposta adequada. A comunicação é realizada via sockets utilizando o protocolo TCP, o que garante a confiabilidade e a entrega ordenada dos pacotes (diferentemente do UDP).
 
 Para estabelecer a conexão, o cliente deve especificar o endereço IP e a porta do servidor. O servidor, por sua vez, deve configurar sua porta de escuta e aguardar a conexão simultânea de um ou mais clientes.
